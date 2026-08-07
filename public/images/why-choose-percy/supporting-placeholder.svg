@@ -1,0 +1,10 @@
+<svg viewBox="0 0 541 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder supporting photo for the Why People Choose Percy section">
+  <rect width="541" height="280" fill="#f7f3ec"/>
+  <rect x="0.5" y="0.5" width="540" height="279" fill="none" stroke="#e2dfdb" stroke-width="1" stroke-dasharray="6 6"/>
+  <g transform="translate(220,90)" fill="none" stroke="#192a42" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0" y="0" width="100" height="75" rx="7"/>
+    <circle cx="25" cy="22" r="8.5"/>
+    <path d="M0 62 L32 37 L58 55 L78 33 L100 52 L100 75 L0 75 Z"/>
+  </g>
+  <text x="270" y="205" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#767676">Placeholder photo — replace with a real Percy Dillard project photo</text>
+</svg>
