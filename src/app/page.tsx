@@ -1,11 +1,27 @@
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
+import { Hero } from "@/components/sections/Hero";
+import { WhatWeDoSection } from "@/components/sections/WhatWeDoSection";
+import { WhyChoosePercySection } from "@/components/sections/WhyChoosePercySection";
+import { FeaturedProjectsSection } from "@/components/sections/FeaturedProjectsSection";
+import { WhereWeWorkSection } from "@/components/sections/WhereWeWorkSection";
+import { TestimonialsSection } from "@/components/sections/TestimonialsSection";
+import { FaqEstimateSection } from "@/components/sections/FaqEstimateSection";
+
 export default function Home() {
   return (
-    <main className="p-8">
-      <h1 className="text-xl font-semibold">DeVore Studio Project Starter</h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        Technical foundation only. Visual design is implemented per-project from
-        the approved Figma file.
-      </p>
-    </main>
+    <>
+      <Header />
+      <main className="flex flex-col">
+        <Hero />
+        <WhatWeDoSection />
+        <WhyChoosePercySection />
+        <FeaturedProjectsSection />
+        <WhereWeWorkSection />
+        <TestimonialsSection />
+        <FaqEstimateSection />
+      </main>
+      <Footer />
+    </>
   );
 }

@@ -5,6 +5,9 @@ import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { FormField, descriptionId, errorId } from "./FormField";
 
+const ALLOWED_TYPES = ["image/jpeg", "image/png"];
+const DEFAULT_MAX_FILE_SIZE_MB = 8;
+
 export type FileUploadFieldProps = {
   id?: string;
   label: string;
@@ -13,16 +16,20 @@ export type FileUploadFieldProps = {
   required?: boolean;
   className?: string;
   maxFiles?: number;
+  /** Per-file size ceiling, in megabytes. */
+  maxFileSizeMB?: number;
   accept?: string;
-  /** Called with the current file selection whenever it changes. */
+  /** Called with the current valid file selection whenever it changes. */
   onFilesChange?: (files: File[]) => void;
 };
 
 /**
  * "Project photos (optional)" dropzone. UI + local selection state only
  * — no upload/backend wiring yet (that's a later milestone alongside the
- * Resend/form-delivery decision). Enforces maxFiles client-side so the
- * validation architecture is in place ahead of a real submit handler.
+ * Resend/form-delivery decision). Validates file type, per-file size,
+ * and max count client-side so the validation architecture is in place
+ * ahead of a real submit handler; invalid files are rejected with a
+ * specific reason rather than silently dropped.
  */
 export function FileUploadField({
   id,
@@ -32,6 +39,7 @@ export function FileUploadField({
   required,
   className,
   maxFiles = 6,
+  maxFileSizeMB = DEFAULT_MAX_FILE_SIZE_MB,
   accept = "image/jpeg,image/png",
   onFilesChange,
 }: FileUploadFieldProps) {
@@ -45,15 +53,33 @@ export function FileUploadField({
 
   function applyFiles(nextFiles: FileList | null) {
     if (!nextFiles) return;
-    const selected = Array.from(nextFiles);
-    if (selected.length > maxFiles) {
-      setLocalError(`You can add up to ${maxFiles} photos.`);
-    } else {
-      setLocalError(null);
+    const incoming = Array.from(nextFiles);
+    const problems: string[] = [];
+    const maxBytes = maxFileSizeMB * 1024 * 1024;
+
+    const valid = incoming.filter((file) => {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        problems.push(`${file.name} isn't a JPG or PNG.`);
+        return false;
+      }
+      if (file.size > maxBytes) {
+        problems.push(`${file.name} is larger than ${maxFileSizeMB}MB.`);
+        return false;
+      }
+      return true;
+    });
+
+    let kept = valid;
+    if (kept.length > maxFiles) {
+      problems.push(
+        `Only the first ${maxFiles} photos were kept — the limit is ${maxFiles}.`,
+      );
+      kept = kept.slice(0, maxFiles);
     }
-    const limited = selected.slice(0, maxFiles);
-    setFiles(limited);
-    onFilesChange?.(limited);
+
+    setFiles(kept);
+    setLocalError(problems.length > 0 ? problems.join(" ") : null);
+    onFilesChange?.(kept);
   }
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {

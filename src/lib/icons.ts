@@ -35,6 +35,11 @@
  * Icons only used by the hidden/superseded "Value Cards" frame
  * (mynaui:badge, carbon:report, mynaui:home, mage:building-b) are
  * intentionally omitted — that section is not being implemented.
+ *
+ * `menu` / `close` are NOT from the Figma file — no mobile nav was
+ * designed there. They're added here (Milestone 2) for the inferred
+ * disclosure-style mobile navigation, using the same approved Lucide
+ * library rather than introducing a new one.
  */
 
 import {
@@ -47,12 +52,14 @@ import {
   ImagePlus,
   Mail,
   MapPin,
+  Menu,
   Phone,
   Quote,
   Ruler,
   ShieldCheck,
   Sparkles,
   Star,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -72,6 +79,8 @@ export const icons = {
   imagePlus: ImagePlus,
   check: Check,
   mail: Mail,
+  menu: Menu,
+  close: X,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;

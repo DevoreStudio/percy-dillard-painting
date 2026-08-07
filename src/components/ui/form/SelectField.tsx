@@ -24,6 +24,13 @@ export type SelectFieldProps = {
  * real <select> rather than a custom listbox for native keyboard/AT
  * support, per CLAUDE.md's preference for native HTML semantics; only
  * the dropdown chevron is custom-drawn.
+ *
+ * Always controlled: EstimateForm (the only current caller) manages
+ * `service` in React state and passes `value`/`onChange` down. `value`
+ * is destructured explicitly and defaulted to "" so the element is never
+ * uncontrolled, rather than also accepting `defaultValue` — mixing the
+ * two on the same <select> is what previously triggered React's
+ * "must be either controlled or uncontrolled" warning.
  */
 export function SelectField({
   id,
@@ -34,7 +41,8 @@ export function SelectField({
   className,
   options,
   placeholder = "Select a service",
-  defaultValue,
+  value,
+  onChange,
   ...selectProps
 }: SelectFieldProps) {
   const ChevronDown = icons.chevronDown;
@@ -51,7 +59,8 @@ export function SelectField({
         <select
           id={id}
           required={required}
-          defaultValue={defaultValue ?? ""}
+          value={value ?? ""}
+          onChange={onChange}
           aria-describedby={
             cn(description && descriptionId(id), error && errorId(id)) ||
             undefined

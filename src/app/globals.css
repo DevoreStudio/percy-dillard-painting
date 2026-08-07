@@ -20,6 +20,9 @@
   /* Brand */
   --color-navy: #192a42;
   --color-navy-foreground: #ffffff;
+  /* Deeper navy used specifically for the "Where We Work" section
+     background per Figma/QA correction — distinct from --color-navy. */
+  --color-navy-deep: #142639;
   --color-orange: #e67c2e;
   --color-orange-foreground: #1e1e1e;
   --color-blue: #497bc2;
@@ -28,6 +31,8 @@
   --color-surface: #ffffff;
   --color-surface-muted: #f7f3ec;
   --color-tint-blue: #eaf1f7;
+  /* Category tag / chip fill (Featured Projects badges). */
+  --color-chip: #f0ede8;
 
   /* Borders */
   --color-border: #e2dfdb;
@@ -51,6 +56,7 @@
 
   --color-navy: var(--color-navy);
   --color-navy-foreground: var(--color-navy-foreground);
+  --color-navy-deep: var(--color-navy-deep);
   --color-orange: var(--color-orange);
   --color-orange-foreground: var(--color-orange-foreground);
   --color-blue: var(--color-blue);
@@ -58,6 +64,7 @@
   --color-surface: var(--color-surface);
   --color-surface-muted: var(--color-surface-muted);
   --color-tint-blue: var(--color-tint-blue);
+  --color-chip: var(--color-chip);
 
   --color-border: var(--color-border);
   --color-border-input: var(--color-border-input);
