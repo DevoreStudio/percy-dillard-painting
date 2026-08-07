@@ -48,6 +48,23 @@
   /* Radii */
   --radius-card: 24px;
   --radius-input: 8px;
+
+  /*
+   * Sticky header height, used to offset anchor-link scrolling (see
+   * `html { scroll-padding-top }` below) so every section lands below
+   * the header instead of partially underneath it.
+   *
+   * Verified this is the same in both the compact (hamburger) and full
+   * desktop nav layouts: in both modes the tallest row content is 48px
+   * (the logo circle in compact mode; the logo circle and the
+   * `leading-none` CTA button, which also resolves to ~48px, in desktop
+   * mode) plus the header's `py-4` (32px) vertical padding and 1px
+   * border — 81px, rounded up for a small comfortable gap. If the
+   * header's own height ever changes (e.g. a taller desktop row), split
+   * this into a `@media (min-width: 1280px)` override rather than
+   * scattering per-section offsets again.
+   */
+  --header-height: 5.25rem; /* 84px */
 }
 
 @theme inline {
@@ -87,4 +104,15 @@
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/*
+ * Global anchor-scroll offset. Every section anchor (Header/MobileNav
+ * links, "Request a Free Estimate" / "Get a Price" CTAs) now gets
+ * consistent positioning below the sticky header from this one rule,
+ * instead of a per-section `scroll-margin-top` utility repeated (and
+ * potentially forgotten) on each target.
+ */
+html {
+  scroll-padding-top: var(--header-height);
 }

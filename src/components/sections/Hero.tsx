@@ -34,8 +34,17 @@ export function Hero() {
 
   return (
     <section id="top" className="bg-background">
-      <Container className="grid grid-cols-1 items-center gap-12 py-16 lg:grid-cols-2 lg:py-24">
-        <div className="flex flex-col gap-6">
+      <Container
+        // py-24 is reserved for xl+ (true desktop, matching the approved
+        // 1280px design). At lg (tablet, 1024px) the two-column layout
+        // already shows a fairly tall image next to a shorter text
+        // column, so keeping the full desktop vertical padding on top of
+        // that stacked up to a lot of empty space before "What We Do" —
+        // dropping back to py-16 through the tablet band removes that
+        // without touching the 1280px+ look.
+        className="grid grid-cols-1 items-center gap-12 py-16 lg:grid-cols-2 xl:py-24"
+      >
+        <div className="flex min-w-0 flex-col gap-6">
           <h1 className="font-display text-[40px] leading-[1.05] tracking-tight text-foreground sm:text-[54px]">
             Painting &amp; drywall done the right way.
           </h1>
@@ -82,7 +91,7 @@ export function Hero() {
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative min-w-0">
           <Image
             src="/images/hero/hero-placeholder.svg"
             alt="Placeholder hero photo — pending the approved Figma house photo asset"

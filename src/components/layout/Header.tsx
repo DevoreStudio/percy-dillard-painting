@@ -23,7 +23,7 @@ export function Header() {
           </span>
         </a>
 
-        <nav aria-label="Primary" className="hidden lg:block">
+        <nav aria-label="Primary" className="hidden xl:block">
           <ul className="flex items-center gap-8 font-ui text-sm text-foreground">
             {navLinks.map((link) => (
               <li key={link.href}>
@@ -35,7 +35,7 @@ export function Header() {
           </ul>
         </nav>
 
-        <div className="hidden items-center gap-4 lg:flex">
+        <div className="hidden items-center gap-4 xl:flex">
           {contact.phone && (
             <a
               href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}

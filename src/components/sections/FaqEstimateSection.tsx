@@ -44,13 +44,13 @@ export function FaqEstimateSection() {
 
         <div
           id="estimate"
-          // Sticky header is 80px tall (48px logo + 16px vertical padding
-          // on each side). Unlike the other anchor targets — which are
-          // full <section> elements whose own top padding happens to
-          // absorb the header overlap — this div sits mid-section with
-          // no padding above its real content, so without an explicit
-          // offset the header covers the top of the panel on scroll.
-          className="flex scroll-mt-20 flex-col overflow-hidden rounded-card shadow-lg lg:flex-row"
+          // Anchor offset now comes from the global `html { scroll-
+          // padding-top }` rule in globals.css, which covers every
+          // section anchor consistently. Do not add a scroll-margin-top
+          // here too — scroll-padding-top (container) and scroll-
+          // margin-top (target) stack additively, so combining them
+          // would double the offset for this one target.
+          className="flex flex-col overflow-hidden rounded-card shadow-lg lg:flex-row"
         >
           <div className="flex flex-col gap-10 bg-navy px-8 py-12 text-navy-foreground lg:w-[420px] lg:shrink-0 lg:px-12">
             <div className="flex flex-col gap-4">

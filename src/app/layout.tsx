@@ -53,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`h-full antialiased ${inter.variable} ${inriaSans.variable} ${inriaSerif.variable}`}
     >
-      <body className="min-h-full flex flex-col font-body bg-background text-foreground">
+      <body className="flex min-h-full flex-col overflow-x-hidden font-body bg-background text-foreground">
         {children}
       </body>
     </html>

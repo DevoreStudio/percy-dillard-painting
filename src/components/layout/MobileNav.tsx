@@ -47,7 +47,7 @@ export function MobileNav({ navLinks, phone }: MobileNavProps) {
   }
 
   return (
-    <div className="lg:hidden">
+    <div className="xl:hidden">
       <button
         ref={triggerRef}
         type="button"
