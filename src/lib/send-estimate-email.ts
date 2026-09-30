@@ -17,12 +17,24 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 export class EstimateEmailConfigError extends Error {}
 export class EstimateEmailDeliveryError extends Error {}
 
+/** A photo attachment ready to send to Resend — `content` is the raw
+ * file bytes, base64-encoded, per Resend's attachments API. Built from
+ * validatePhotos() in estimate-photo-validation.ts, never from
+ * unvalidated input. */
+export type EstimateEmailAttachment = {
+  filename: string;
+  content: string;
+};
+
 function serviceLabel(id: string): string {
   if (id === "other") return "Other";
   return services.find((service) => service.id === id)?.title ?? id;
 }
 
-function buildEmailBody(values: EstimateFormPayload): string {
+function buildEmailBody(
+  values: EstimateFormPayload,
+  attachmentCount: number,
+): string {
   const submitted = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
     dateStyle: "medium",
@@ -30,8 +42,8 @@ function buildEmailBody(values: EstimateFormPayload): string {
   });
 
   const photosLine =
-    values.photoCount > 0
-      ? `Customer selected ${values.photoCount} photo${values.photoCount === 1 ? "" : "s"} in the form, but this website does not yet email photo attachments. Ask them to send photos directly, or plan to view them when you follow up.`
+    attachmentCount > 0
+      ? `${attachmentCount} photo${attachmentCount === 1 ? "" : "s"} attached to this email.`
       : "None attached.";
 
   return [
@@ -75,6 +87,7 @@ function buildEmailBody(values: EstimateFormPayload): string {
  */
 export async function sendEstimateEmail(
   values: EstimateFormPayload,
+  attachments: EstimateEmailAttachment[] = [],
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.ESTIMATE_FROM_EMAIL;
@@ -104,7 +117,8 @@ export async function sendEstimateEmail(
         to: [toEmail],
         reply_to: values.email,
         subject,
-        text: buildEmailBody(values),
+        text: buildEmailBody(values, attachments.length),
+        ...(attachments.length > 0 && { attachments }),
       }),
     });
   } catch (cause) {

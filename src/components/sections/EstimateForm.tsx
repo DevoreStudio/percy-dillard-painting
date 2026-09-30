@@ -59,7 +59,7 @@ const initialValues: FormValues = {
   company: "",
 };
 
-type FormErrors = Partial<Record<keyof FormValues, string>>;
+type FormErrors = Partial<Record<keyof FormValues | "photos", string>>;
 
 type SubmitState = "idle" | "submitting" | "success" | "failure";
 
@@ -70,7 +70,7 @@ type SubmitState = "idle" | "submitting" | "success" | "failure";
  * `fieldErrors` (keyed the same way validateEstimateRequest on the
  * server returns them) back onto the right input. */
 const FIELD_ELEMENT_IDS: Record<
-  "name" | "email" | "phone" | "city" | "services" | "details",
+  "name" | "email" | "phone" | "city" | "services" | "details" | "photos",
   string
 > = {
   name: "estimate-name",
@@ -79,6 +79,7 @@ const FIELD_ELEMENT_IDS: Record<
   city: "estimate-city",
   services: "estimate-service",
   details: "estimate-details",
+  photos: "estimate-photos",
 };
 
 function validate(values: FormValues): FormErrors {
@@ -108,28 +109,35 @@ type EstimateApiResponse =
     };
 
 /**
- * Submits to the estimate endpoint (src/app/api/estimate/route.ts).
- * Only photo COUNT is sent, never the files themselves — see the
- * PHOTO STRATEGY note at the top of that route for why, and
- * FileUploadField/removeFile for where `photoCount` comes from.
+ * Submits to the estimate endpoint (src/app/api/estimate/route.ts) as
+ * multipart/form-data so the selected photos travel with the request
+ * as real file attachments rather than just a count — see
+ * src/lib/estimate-photo-validation.ts for how the server validates and
+ * attaches them. The browser sets the multipart Content-Type/boundary
+ * automatically when the body is a FormData instance; setting it by
+ * hand would omit the boundary and break parsing.
  */
 async function submitEstimateRequest(
   values: FormValues,
-  photoCount: number,
+  photos: File[],
 ): Promise<EstimateApiResponse> {
+  const formData = new FormData();
+  formData.set("name", values.name);
+  formData.set("phone", values.phone);
+  formData.set("email", values.email);
+  formData.set("city", values.city);
+  formData.set("details", values.details);
+  formData.set("company", values.company);
+  for (const service of values.services) {
+    formData.append("services", service);
+  }
+  for (const photo of photos) {
+    formData.append("photos", photo, photo.name);
+  }
+
   const response = await fetch("/api/estimate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: values.name,
-      phone: values.phone,
-      email: values.email,
-      city: values.city,
-      services: values.services,
-      details: values.details,
-      company: values.company,
-      photoCount,
-    }),
+    body: formData,
   });
 
   const data = (await response
@@ -147,17 +155,22 @@ export function EstimateForm() {
   const [values, setValues] = useState<FormValues>(initialValues);
   const [errors, setErrors] = useState<FormErrors>({});
   const [photos, setPhotos] = useState<File[]>([]);
+  const [photosProcessing, setPhotosProcessing] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const statusRef = useRef<HTMLDivElement>(null);
+  const successRef = useRef<HTMLDivElement>(null);
   const Phone = icons.phone;
 
-  // Move focus to the status banner whenever a submission resolves, so
-  // keyboard and screen-reader users get a clear, immediate signal of
-  // the outcome instead of having to go looking for it.
+  // Move focus to the status banner (failure) or the confirmation
+  // panel (success) whenever a submission resolves, so keyboard and
+  // screen-reader users get a clear, immediate signal of the outcome
+  // instead of having to go looking for it.
   useEffect(() => {
-    if (submitState === "success" || submitState === "failure") {
+    if (submitState === "failure") {
       statusRef.current?.focus();
+    } else if (submitState === "success") {
+      successRef.current?.focus();
     }
   }, [submitState]);
 
@@ -232,8 +245,11 @@ export function EstimateForm() {
     event.preventDefault();
 
     // Prevent duplicate submissions from a double-click or repeated
-    // Enter presses while a request is already in flight.
-    if (submitState === "submitting") return;
+    // Enter presses while a request is already in flight, and prevent
+    // submitting before the browser-side photo optimization (see
+    // FileUploadField's onProcessingChange) has finished — the button
+    // is disabled during both, this is just a defensive backstop.
+    if (submitState === "submitting" || photosProcessing) return;
 
     // Honeypot: a real visitor never sees or fills the "company" field
     // (see the offscreen input below), so any value here almost
@@ -258,9 +274,17 @@ export function EstimateForm() {
     setStatusMessage(null);
 
     try {
-      const result = await submitEstimateRequest(values, photos.length);
+      const result = await submitEstimateRequest(values, photos);
 
       if (result.ok) {
+        // Clear all form state on success — the confirmation view
+        // replaces the form entirely (see the render below), so this
+        // also guarantees the same request can't accidentally be
+        // resubmitted.
+        setValues(initialValues);
+        setPhotos([]);
+        setErrors({});
+        setStatusMessage(null);
         setSubmitState("success");
         return;
       }
@@ -288,6 +312,40 @@ export function EstimateForm() {
   }
 
   const isSubmitting = submitState === "submitting";
+
+  // Success replaces the entire form area with a dedicated confirmation
+  // state — no form fields, submit button, or "call Percy" prompt.
+  // Nothing here encourages a further action, per the approved copy.
+  if (submitState === "success") {
+    return (
+      <div
+        ref={successRef}
+        tabIndex={-1}
+        role="status"
+        aria-live="polite"
+        className="flex flex-col gap-6 rounded-input border border-blue bg-tint-blue px-6 py-8 text-center sm:px-10"
+      >
+        <div className="flex flex-col gap-3">
+          <h3 className="font-display text-2xl text-foreground">
+            Thanks! Your request has been sent.
+          </h3>
+          <p className="font-body text-base text-foreground">
+            Percy will review your project details and follow up with you to
+            discuss your estimate.
+          </p>
+        </div>
+
+        <div className="border-t border-blue/30 pt-6">
+          <p className="font-ui text-sm font-medium uppercase tracking-wide text-text-muted">
+            What happens next
+          </p>
+          <p className="mt-2 font-body text-base text-foreground">
+            Percy will contact you using the phone number or email you provided.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
@@ -383,44 +441,27 @@ export function EstimateForm() {
       />
 
       <FileUploadField
+        id="estimate-photos"
         label="Project photos (optional)"
         maxFiles={6}
+        error={errors.photos}
         onFilesChange={setPhotos}
+        onProcessingChange={setPhotosProcessing}
       />
 
-      {/* Single status region, focusable so it can receive focus
+      {/* Failure-only status region, focusable so it can receive focus
           programmatically on submit resolution (see the effect above).
-          role="status"/"alert" and the polite/assertive split matches
-          each outcome's urgency: a quiet confirmation vs. something
-          that needs the visitor's attention. */}
-      <div
-        ref={statusRef}
-        tabIndex={-1}
-        aria-live={submitState === "failure" ? "assertive" : "polite"}
-        role={submitState === "failure" ? "alert" : "status"}
-      >
-        {submitState === "success" && (
-          <p className="rounded-input border border-blue bg-tint-blue px-4 py-3 font-ui text-sm text-foreground">
-            Thanks! Your estimate request has been sent to Percy. We&rsquo;ll
-            follow up to discuss your project.
-            {photos.length > 0 && (
-              <>
-                {" "}
-                Photos aren&rsquo;t included with this request yet: email them
-                to {contact.email ?? "Percy"} or bring them up when he calls.
-              </>
-            )}
-            {contact.phone && (
-              <> You can also reach Percy directly at {contact.phone}.</>
-            )}
-          </p>
-        )}
-
+          Success no longer renders here — it replaces the whole form
+          (see the early return above) — so this region only ever needs
+          to handle the "something went wrong" case, which is also the
+          only case where the phone fallback should appear. */}
+      <div ref={statusRef} tabIndex={-1} aria-live="assertive" role="alert">
         {submitState === "failure" && statusMessage && (
           <p className="rounded-input border border-red-500 bg-red-50 px-4 py-3 font-ui text-sm text-foreground">
-            {statusMessage} Your information hasn&rsquo;t been lost.
+            {statusMessage} Your information hasn&rsquo;t been lost — please try
+            again.
             {contact.phone && (
-              <> Please try again or call Percy at {contact.phone}.</>
+              <> You can also reach Percy directly at {contact.phone}.</>
             )}
           </p>
         )}
@@ -434,10 +475,14 @@ export function EstimateForm() {
         type="submit"
         variant="accent"
         className="w-full sm:w-auto"
-        disabled={isSubmitting}
-        aria-busy={isSubmitting || undefined}
+        disabled={isSubmitting || photosProcessing}
+        aria-busy={isSubmitting || photosProcessing || undefined}
       >
-        {isSubmitting ? "Sending Request..." : "Request a Free Estimate"}
+        {isSubmitting
+          ? "Sending Request..."
+          : photosProcessing
+            ? "Optimizing photos…"
+            : "Request a Free Estimate"}
       </Button>
 
       {contact.phone && (

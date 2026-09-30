@@ -16,6 +16,28 @@ export const MAX_CITY_LENGTH = 100;
 export const MAX_DETAILS_LENGTH = 4000;
 export const MAX_PHOTO_COUNT = 6;
 
+/**
+ * Photo attachment budget.
+ *
+ * Vercel's Node.js serverless functions enforce a hard ~4.5MB request
+ * body ceiling that cannot be raised through configuration (see
+ * https://vercel.com/docs/functions/limitations) — Resend itself allows
+ * up to 40MB per email, so the platform, not the email provider, is the
+ * binding constraint. Real phone-camera photos routinely run 2-8MB
+ * each, so "6 full-resolution photos" and "stays under 4.5MB" are not
+ * simultaneously possible without either client-side compression or
+ * external storage — neither of which has been introduced here (see the
+ * note in estimate-photo-validation.ts). These numbers are the largest
+ * budget that reliably leaves headroom for the text fields and
+ * multipart overhead under that ceiling; customers with larger photos
+ * will need to send fewer, or smaller, files. Shared between the client
+ * (FileUploadField/EstimateForm) and the server (route.ts /
+ * estimate-photo-validation.ts) so both enforce the same numbers.
+ */
+export const MAX_PHOTO_FILE_BYTES = 1.5 * 1024 * 1024; // 1.5MB per photo
+export const MAX_PHOTO_TOTAL_BYTES = 4 * 1024 * 1024; // 4MB combined
+export const ALLOWED_PHOTO_MIME_TYPES = ["image/jpeg", "image/png"] as const;
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Deliberately permissive: accepts anything from a 7-digit local number
@@ -40,17 +62,13 @@ export type EstimateFormPayload = {
   city: string;
   services: string[];
   details: string;
-  /**
-   * How many photos the visitor selected in the browser. This is a
-   * plain count, not file data — see docs/PHOTO-STRATEGY notes in
-   * route.ts for why photo files themselves aren't sent to this
-   * endpoint yet.
-   */
-  photoCount: number;
 };
 
 export type EstimateFieldErrors = Partial<
-  Record<"name" | "phone" | "email" | "city" | "services" | "details", string>
+  Record<
+    "name" | "phone" | "email" | "city" | "services" | "details" | "photos",
+    string
+  >
 >;
 
 export type EstimateValidationResult =
@@ -93,12 +111,6 @@ export function validateEstimateRequest(
     (value): value is string =>
       typeof value === "string" && KNOWN_SERVICE_IDS.has(value),
   );
-  const photoCount =
-    typeof body.photoCount === "number" &&
-    Number.isFinite(body.photoCount) &&
-    body.photoCount >= 0
-      ? Math.min(Math.floor(body.photoCount), MAX_PHOTO_COUNT)
-      : 0;
 
   if (!name) {
     errors.name = "Enter your name.";
@@ -151,7 +163,6 @@ export function validateEstimateRequest(
       city,
       services: selectedServices,
       details,
-      photoCount,
     },
   };
 }

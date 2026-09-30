@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { validateEstimateRequest } from "@/lib/estimate-validation";
+import { validatePhotos } from "@/lib/estimate-photo-validation";
+import {
+  MAX_PHOTO_TOTAL_BYTES,
+  validateEstimateRequest,
+} from "@/lib/estimate-validation";
 import { isWithinRateLimit } from "@/lib/rate-limit";
 import {
   EstimateEmailConfigError,
@@ -8,39 +12,27 @@ import {
 } from "@/lib/send-estimate-email";
 
 // Node.js runtime (the default) rather than Edge: this route reads
-// server-only env vars and makes a normal outbound fetch to Resend,
-// nothing here needs Edge's constrained runtime.
+// server-only env vars, reads uploaded file bytes, and makes a normal
+// outbound fetch to Resend — nothing here needs Edge's constrained
+// runtime.
 export const runtime = "nodejs";
 
+// Rough ceiling for the whole request body (text fields + multipart
+// overhead + photos), kept comfortably under Vercel's hard ~4.5MB
+// serverless function request-body limit (see
+// https://vercel.com/docs/functions/limitations and the photo-budget
+// note in estimate-validation.ts). This is just a fast, friendlier
+// pre-check before parsing — the platform's own ceiling is the real
+// backstop and applies regardless of this check.
+const MAX_REQUEST_BYTES = MAX_PHOTO_TOTAL_BYTES + 256 * 1024;
+
 /**
- * Estimate request endpoint.
- *
- * PHOTO STRATEGY — read before changing this file to accept file
- * uploads:
- *
- * This endpoint intentionally does NOT accept photo file bytes today.
- * Vercel's serverless functions have a hard 4.5MB request body limit
- * that cannot be raised through configuration (see
- * https://vercel.com/docs/functions/limitations) — it's a platform
- * ceiling, not a Resend limitation (Resend accepts up to 40MB per
- * email). The estimate form currently expects to support up to 6
- * photos with no aggressive compression, and real phone photos
- * routinely run 2-8MB each — even a single typical photo could exceed
- * the request body limit on its own, well before Resend or email
- * provider limits become relevant. Direct attachment through this
- * function is therefore not a reliable architecture at the form's
- * current photo expectations.
- *
- * The client instead sends only a photo COUNT (see
- * EstimateFormPayload.photoCount) so Percy's email can honestly note
- * "customer selected N photos" without the endpoint ever touching file
- * data. Making photos actually arrive requires either uploading them
- * client-side directly to external storage (bypassing this function
- * entirely — e.g. Vercel Blob's client upload or Supabase Storage) or
- * accepting a much smaller photo/size budget than the form currently
- * advertises. That's a real architectural decision with a new
- * provider/account attached to it, so it hasn't been made here — see
- * the production-readiness report.
+ * Estimate request endpoint. Accepts a multipart/form-data POST: the
+ * text fields plus up to MAX_PHOTO_COUNT photos under repeated "photos"
+ * entries. Photo files are validated and read server-side in
+ * validatePhotos() (src/lib/estimate-photo-validation.ts) and, when
+ * valid, sent as real attachments on the Resend email — see that file
+ * for the size budget this is built around and why.
  */
 export async function POST(request: Request) {
   const clientIp =
@@ -59,9 +51,22 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, unknown>;
+  const contentLength = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "payload_too_large",
+        message:
+          "Your photos are too large to send. Please remove a photo or choose smaller files.",
+      },
+      { status: 413 },
+    );
+  }
+
+  let formData: FormData;
   try {
-    body = await request.json();
+    formData = await request.formData();
   } catch {
     return NextResponse.json(
       { ok: false, error: "invalid_body", message: "Malformed request." },
@@ -69,15 +74,29 @@ export async function POST(request: Request) {
     );
   }
 
+  function readField(name: string): string {
+    const value = formData.get(name);
+    return typeof value === "string" ? value : "";
+  }
+
   // Honeypot: a real visitor never fills this field in (it's visually
   // hidden and out of tab order — see EstimateForm.tsx). A populated
   // value almost certainly means a bot. Respond exactly as if the
   // submission succeeded, without actually sending anything, so the bot
   // gets no signal that it was caught and has no reason to adapt.
-  const honeypot = typeof body.company === "string" ? body.company.trim() : "";
+  const honeypot = readField("company").trim();
   if (honeypot) {
     return NextResponse.json({ ok: true });
   }
+
+  const body = {
+    name: readField("name"),
+    phone: readField("phone"),
+    email: readField("email"),
+    city: readField("city"),
+    details: readField("details"),
+    services: formData.getAll("services").filter((v) => typeof v === "string"),
+  };
 
   const result = validateEstimateRequest(body);
   if (!result.ok) {
@@ -87,8 +106,30 @@ export async function POST(request: Request) {
     );
   }
 
+  const photoFiles = formData
+    .getAll("photos")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+
+  const photoValidation = await validatePhotos(photoFiles);
+  if (!photoValidation.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "validation_failed",
+        fieldErrors: { photos: photoValidation.message },
+      },
+      { status: 422 },
+    );
+  }
+
   try {
-    await sendEstimateEmail(result.values);
+    await sendEstimateEmail(
+      result.values,
+      photoValidation.photos.map((photo) => ({
+        filename: photo.filename,
+        content: photo.buffer.toString("base64"),
+      })),
+    );
   } catch (error) {
     // Log server-side for diagnosis, but never forward provider
     // response bodies, stack traces, or API keys to the browser — the
