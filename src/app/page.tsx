@@ -7,10 +7,13 @@ import { FeaturedProjectsSection } from "@/components/sections/FeaturedProjectsS
 import { WhereWeWorkSection } from "@/components/sections/WhereWeWorkSection";
 import { TestimonialsSection } from "@/components/sections/TestimonialsSection";
 import { FaqEstimateSection } from "@/components/sections/FaqEstimateSection";
+import { getLocalBusinessSchema } from "@/lib/content/local-business-schema";
+import { jsonLdScriptProps } from "@/lib/json-ld";
 
 export default function Home() {
   return (
     <>
+      <script {...jsonLdScriptProps(getLocalBusinessSchema())} />
       <Header />
       <main className="flex flex-col">
         <Hero />

@@ -13,8 +13,10 @@
 
 export const siteConfig = {
   name: "Percy Dillard Painting & Drywall",
+  /** Used as the default <title> — includes the primary location per SEO guidance. */
+  titleDefault: "Percy Dillard Painting & Drywall | Waynesboro, VA",
   description:
-    "Interior and exterior painting and drywall services for homes and businesses in Waynesboro, Charlottesville, and Central Virginia.",
+    "Professional painting and drywall services in Waynesboro, Charlottesville, and surrounding Central Virginia communities. Contact Percy Dillard Painting & Drywall for a free estimate.",
   // Production URL comes from NEXT_PUBLIC_SITE_URL. localhost is a
   // development fallback ONLY — this must be set to the project's real
   // domain before launch (see docs/LAUNCH-CHECKLIST.md). Used for

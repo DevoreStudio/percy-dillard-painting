@@ -115,4 +115,13 @@ body {
  */
 html {
   scroll-padding-top: var(--header-height);
+  scroll-behavior: smooth;
+}
+
+/* Respect the OS-level reduced-motion preference: anchor navigation
+   jumps directly to the target instead of animating the scroll. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

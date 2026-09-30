@@ -7,7 +7,7 @@ import { FaqList } from "./FaqList";
 
 const checklist = [
   "Free, no-obligation written estimate",
-  "Reply within one business day",
+  "We'll follow up to discuss your project",
   "Photos help us give a tighter number",
 ];
 

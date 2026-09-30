@@ -17,15 +17,18 @@ export function WhyChoosePercySection() {
                 <br className="hidden lg:block" /> not a franchise.
               </>
             }
-            description="Percy Dillard has been painting Central Virginia homes for over thirty years. Word of mouth is still where nearly every job comes from — which is exactly why the details matter so much to us."
+            description="Percy Dillard has been painting Central Virginia homes for over thirty years. Much of his business has been built through referrals and repeat customers, which is why the details matter so much."
           />
-          <Image
-            src="/images/why-choose-percy/supporting-placeholder.svg"
-            alt="Placeholder supporting photo — pending a real Percy Dillard project photo"
-            width={541}
-            height={280}
-            className="h-auto w-full rounded-card object-cover"
-          />
+          {/* `fill` on a fixed-aspect wrapper — see Hero.tsx for why. */}
+          <div className="relative aspect-[541/280] w-full overflow-hidden rounded-card">
+            <Image
+              src="/images/why-choose-percy/exterior-painting-process.jpg"
+              alt="Percy Dillard Painting & Drywall crew painting a home's exterior, with windows and doors masked off to protect them"
+              fill
+              sizes="(min-width: 1024px) 40vw, 100vw"
+              className="object-cover object-[center_40%]"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

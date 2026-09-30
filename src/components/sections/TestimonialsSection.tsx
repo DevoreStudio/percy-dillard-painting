@@ -1,21 +1,19 @@
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { testimonials } from "@/lib/content/testimonials";
-import { isDevPreview } from "@/lib/dev-preview";
 import { TestimonialCard } from "./TestimonialCard";
 
 /**
- * None of the testimonials in lib/content/testimonials.ts have been
- * confirmed as real customer feedback yet (isVerified: false). Per the
- * approved plan they may render for local/preview visual review with a
- * dev-only "Unverified" badge, but must not silently become production
- * content — so production only shows verified testimonials, and the
- * section itself disappears if none exist yet.
+ * Real reviews only. `isVerified` stays on the Testimonial type as a
+ * safety net for anything added here before it's confirmed real — the
+ * filter below (and the section disappearing entirely if nothing is
+ * verified) is what keeps an unconfirmed draft entry from silently
+ * shipping to production. It's not gated on isDevPreview: there's no
+ * "preview-only" testimonial content anymore, so there's nothing to show
+ * in development that shouldn't also be safe to show in production.
  */
 export function TestimonialsSection() {
-  const visibleTestimonials = testimonials.filter(
-    (t) => t.isVerified || isDevPreview,
-  );
+  const visibleTestimonials = testimonials.filter((t) => t.isVerified);
 
   if (visibleTestimonials.length === 0) {
     return null;
@@ -23,12 +21,15 @@ export function TestimonialsSection() {
 
   return (
     <section id="reviews" className="bg-background py-16 lg:py-24">
-      <Container className="flex flex-col gap-12">
+      <Container className="flex flex-col gap-6">
         <SectionHeading
-          eyebrow="What My Clients Say"
+          eyebrow="What Clients Say"
           title="Thirty years of relationships, one job at a time."
         />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <p className="font-ui text-sm text-text-muted">
+          Real customer reviews from Angi and Nextdoor.
+        </p>
+        <div className="grid grid-cols-1 gap-6 pt-6 lg:grid-cols-3">
           {visibleTestimonials.map((testimonial) => (
             <TestimonialCard key={testimonial.id} {...testimonial} />
           ))}

@@ -11,8 +11,8 @@ export function WhatWeDoSection() {
           eyebrow="What We Do"
           title={
             <>
-              One crew for the whole job —<br className="hidden lg:block" />{" "}
-              prep, patch, paint, cleanup.
+              One crew for the whole job:
+              <br className="hidden lg:block" /> prep, patch, paint, cleanup.
             </>
           }
           description="Most of our work comes from homeowners who were tired of chasing separate contractors. We handle the drywall and the finish, so nothing gets blamed on the other guy."

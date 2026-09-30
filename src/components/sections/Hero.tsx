@@ -1,37 +1,10 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
-import { StarRating } from "@/components/ui/StarRating";
 import { contact } from "@/lib/content/contact";
 import { estimateFormHref } from "@/lib/content/nav";
-import { testimonials } from "@/lib/content/testimonials";
-import { isDevPreview } from "@/lib/dev-preview";
-
-/**
- * The design's hero rating line ("5.0 from local homeowners...") is a
- * specific numeric business claim. Rather than ship it as static copy,
- * it's derived from verified testimonials only — with none verified yet,
- * it's hidden in production and shown with a dev tag in preview so the
- * layout can still be reviewed. See milestone report for detail.
- */
-function getHeroRating() {
-  const verified = testimonials.filter((t) => t.isVerified);
-  if (verified.length > 0) {
-    const average =
-      verified.reduce((sum, t) => sum + t.rating, 0) / verified.length;
-    return { rating: average, count: verified.length, isReal: true };
-  }
-  if (isDevPreview) {
-    const average =
-      testimonials.reduce((sum, t) => sum + t.rating, 0) / testimonials.length;
-    return { rating: average, count: testimonials.length, isReal: false };
-  }
-  return null;
-}
 
 export function Hero() {
-  const heroRating = getHeroRating();
-
   return (
     <section id="top" className="bg-background">
       <Container
@@ -70,36 +43,39 @@ export function Hero() {
             )}
           </div>
 
-          {heroRating && (
-            <div className="flex items-center gap-3">
-              <StarRating rating={heroRating.rating} />
-              <p className="font-ui text-sm font-medium text-foreground">
-                {heroRating.rating.toFixed(1)}{" "}
-                <span className="font-extralight">
-                  from local homeowners · free written estimates
-                </span>
-                {!heroRating.isReal && (
-                  <span
-                    data-dev-indicator="unverified-rating"
-                    className="ml-2 rounded-full bg-orange/10 px-2 py-0.5 font-ui text-[10px] font-bold uppercase tracking-wide text-orange"
-                  >
-                    Unverified (dev)
-                  </span>
-                )}
-              </p>
-            </div>
-          )}
+          {/*
+            No numeric aggregate rating (e.g. "5.0") is shown here: the
+            individual real reviews below are 5-star where their source
+            shows a rating, but that doesn't establish an overall
+            aggregate rating for the business, so this stays a truthful,
+            non-numeric statement instead.
+          */}
+          <p className="font-ui text-sm font-medium text-foreground">
+            Recommended by homeowners across Central Virginia
+            <span className="font-extralight"> · Free written estimates</span>
+          </p>
         </div>
 
         <div className="relative min-w-0">
-          <Image
-            src="/images/hero/hero-placeholder.svg"
-            alt="Placeholder hero photo — pending the approved Figma house photo asset"
-            width={580}
-            height={540}
-            className="h-auto w-full rounded-[32px] object-cover"
-            priority
-          />
+          {/*
+            `fill` on a fixed-aspect-ratio wrapper (matching the original
+            580x540 design ratio) rather than fixed width/height props,
+            since the real supplied photo isn't natively that ratio —
+            this keeps the same rounded container/footprint from the
+            approved design while actually cropping the photo via
+            object-cover. Same pattern used in ProjectCard for
+            intentional crops.
+          */}
+          <div className="relative aspect-[580/540] w-full overflow-hidden rounded-[32px]">
+            <Image
+              src="/images/hero/hero-exterior-painting.jpg"
+              alt="Freshly painted white portico columns and trim on a brick home, exterior painting by Percy Dillard Painting & Drywall"
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="object-cover object-[center_30%]"
+              priority
+            />
+          </div>
           <div className="relative mt-6 inline-flex flex-col gap-2 self-start rounded-[44px] bg-surface px-8 py-6 shadow-lg sm:absolute sm:-bottom-6 sm:right-6 sm:mt-0 sm:h-[93px] sm:w-[302px]">
             <p className="font-display text-[32px] font-bold leading-[27px] tracking-[-0.96px] text-foreground">
               30+

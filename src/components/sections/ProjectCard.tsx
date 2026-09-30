@@ -12,7 +12,11 @@ export function ProjectCard({ title, location, category, image }: Project) {
           ratio is exactly what triggers Next.js's image aspect-ratio
           warning. `fill` sidesteps that: the image always fills this
           box and object-cover governs the crop, no intrinsic ratio to
-          preserve or violate. */}
+          preserve or violate. Crop position comes from each project's
+          own `image.objectPosition` (set via inline style, since it's
+          a per-item value rather than a static Tailwind class) so
+          portrait source photos can be positioned independently of the
+          landscape ones already in the gallery — see projects.ts. */}
       <div className="relative h-[216px] w-full">
         <Image
           src={image.src}
@@ -20,6 +24,7 @@ export function ProjectCard({ title, location, category, image }: Project) {
           fill
           sizes="(min-width: 1024px) 400px, (min-width: 640px) 50vw, 100vw"
           className="object-cover"
+          style={{ objectPosition: image.objectPosition ?? "center 35%" }}
         />
         {image.isPlaceholder && (
           <span
@@ -33,7 +38,9 @@ export function ProjectCard({ title, location, category, image }: Project) {
       <div className="flex items-start justify-between gap-4 px-6 py-6">
         <div className="flex flex-col gap-2">
           <h3 className="font-display text-xl text-foreground">{title}</h3>
-          <p className="font-body text-sm text-text-muted">{location}</p>
+          {location && (
+            <p className="font-body text-sm text-text-muted">{location}</p>
+          )}
         </div>
         <Badge>{category}</Badge>
       </div>

@@ -30,7 +30,7 @@ const inriaSerif = Inria_Serif({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: siteConfig.name,
+    default: siteConfig.titleDefault,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,

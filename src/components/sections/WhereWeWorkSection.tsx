@@ -27,7 +27,7 @@ export function WhereWeWorkSection() {
         <SectionHeading
           eyebrow="Where We Work"
           title="Serving Waynesboro and Central Virginia."
-          description="We stay close to home on purpose. If you're within about 45 minutes of Waynesboro, we'll come take a look and provide you with a written estimate."
+          description="Serving Waynesboro, Charlottesville, and surrounding Central Virginia communities."
           className="items-center text-center"
           eyebrowClassName="text-white"
           titleClassName="text-white"

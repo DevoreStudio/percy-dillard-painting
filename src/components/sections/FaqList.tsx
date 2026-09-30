@@ -9,7 +9,7 @@ export function FaqList() {
         <SectionHeading
           eyebrow="Questions"
           title="Straight answers, up front."
-          description="Don't see yours? Call and ask — you'll get Percy or someone on the crew, not a script."
+          description="Don't see yours? Call and ask. You'll get Percy or someone on the crew, not a script."
         />
       </div>
       <div className="flex-1">

@@ -1,6 +1,16 @@
 import type { Feature } from "@/types/content";
 
-/** "Why People Choose Percy" trust grid. */
+/**
+ * "Why People Choose Percy" trust grid.
+ *
+ * The "insured" card originally led with "Full liability coverage" as a
+ * settled fact, without a confirmed source. That specific coverage-type
+ * claim was removed during the Pre-Launch content pass. Corey has since
+ * confirmed Percy is insured, so the card again states that plainly, but
+ * still avoids naming a coverage type ("full liability") or dollar
+ * amount that hasn't been separately confirmed. See lib/content/faqs.ts
+ * for the matching "Are you insured?" answer.
+ */
 export const features: Feature[] = [
   {
     id: "prep",
@@ -42,6 +52,6 @@ export const features: Feature[] = [
     icon: "shieldCheck",
     title: "Insured and careful",
     description:
-      "Full liability coverage, floors covered, furniture masked, landscaping protected.",
+      "We're insured, and we protect your property: floors covered, furniture masked, dust kept to a minimum with plastic sheeting where it's needed.",
   },
 ];

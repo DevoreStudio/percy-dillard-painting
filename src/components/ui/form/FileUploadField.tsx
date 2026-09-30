@@ -24,12 +24,16 @@ export type FileUploadFieldProps = {
 };
 
 /**
- * "Project photos (optional)" dropzone. UI + local selection state only
- * — no upload/backend wiring yet (that's a later milestone alongside the
- * Resend/form-delivery decision). Validates file type, per-file size,
- * and max count client-side so the validation architecture is in place
- * ahead of a real submit handler; invalid files are rejected with a
- * specific reason rather than silently dropped.
+ * "Project photos (optional)" dropzone. UI + local selection state only.
+ * No upload/backend wiring yet; that's a later milestone alongside the
+ * Resend/form-delivery decision (see EstimateForm.tsx and the
+ * production-readiness report notes on the estimate form's submission
+ * destination). Validates file type, per-file size, and max count
+ * client-side so the validation architecture is in place ahead of a
+ * real submit handler; invalid files are rejected with a specific
+ * reason rather than silently dropped. Selected files render as
+ * removable chips below the dropzone so a visitor can drop the wrong
+ * photo before submitting.
  */
 export function FileUploadField({
   id,
@@ -88,7 +92,25 @@ export function FileUploadField({
     applyFiles(event.dataTransfer.files);
   }
 
+  function removeFile(index: number) {
+    setFiles((current) => {
+      const next = current.filter((_, i) => i !== index);
+      onFilesChange?.(next);
+      return next;
+    });
+    setLocalError(null);
+    // The native file input keeps its own FileList independent of this
+    // component's `files` state. Clearing it here means the next pick
+    // (via the file dialog or a fresh drop) always starts from a clean
+    // slate rather than the browser silently re-adding a file the user
+    // just removed.
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }
+
   const combinedError = error ?? localError ?? undefined;
+  const Close = icons.close;
 
   return (
     <FormField
@@ -143,6 +165,27 @@ export function FileUploadField({
           className="sr-only"
         />
       </label>
+
+      {files.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {files.map((file, index) => (
+            <li
+              key={`${file.name}-${file.lastModified}-${index}`}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-chip px-3 py-1 font-ui text-sm text-foreground"
+            >
+              <span className="max-w-[200px] truncate">{file.name}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${file.name}`}
+                onClick={() => removeFile(index)}
+                className="shrink-0 rounded-full p-0.5 text-text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--color-blue)]"
+              >
+                <Close aria-hidden="true" size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </FormField>
   );
 }

@@ -26,7 +26,7 @@ export function FeaturedProjectsSection() {
       <Container className="flex flex-col gap-12">
         <SectionHeading
           eyebrow="Featured Projects"
-          title="Recent work around the Valley"
+          title="Recent work across Central Virginia"
           titleClassName="font-bold text-foreground"
         />
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
