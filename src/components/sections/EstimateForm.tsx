@@ -1,5 +1,6 @@
 "use client";
 
+import Script from "next/script";
 import {
   useEffect,
   useRef,
@@ -25,6 +26,26 @@ import {
 } from "@/lib/phone";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Public by design — Cloudflare's own Turnstile docs note the site key
+// is meant to be embedded in page markup/scripts, unlike the secret key
+// (TURNSTILE_SECRET_KEY, used only server-side in verify-turnstile.ts).
+// If unset, the widget simply doesn't render (see the conditional block
+// in the JSX below) rather than crashing — the server fails closed
+// regardless (a missing token is rejected the same as an invalid one),
+// so this only affects whether a visitor sees the widget, not whether
+// verification happens.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+// How long to wait for a first Turnstile token before giving up on the
+// widget entirely (most commonly hit when the Cloudflare script never
+// loads — an ad blocker, firewall, or outage), and how many consecutive
+// automatic expire/error resets to attempt before giving up the same
+// way (so a widget stuck failing because Cloudflare itself is
+// unreachable can't loop forever). See the `turnstileUnavailable` notes
+// in EstimateForm below for what "giving up" means for the visitor.
+const TURNSTILE_LOAD_TIMEOUT_MS = 10_000;
+const MAX_TURNSTILE_AUTO_RESETS = 2;
 
 const serviceOptions: SelectOption[] = [
   ...services.map((service) => ({ value: service.id, label: service.title })),
@@ -120,6 +141,7 @@ type EstimateApiResponse =
 async function submitEstimateRequest(
   values: FormValues,
   photos: File[],
+  turnstileToken: string | null,
 ): Promise<EstimateApiResponse> {
   const formData = new FormData();
   formData.set("name", values.name);
@@ -128,6 +150,10 @@ async function submitEstimateRequest(
   formData.set("city", values.city);
   formData.set("details", values.details);
   formData.set("company", values.company);
+  // Field name matches what src/app/api/estimate/route.ts reads and
+  // what Cloudflare's own Turnstile examples conventionally call it —
+  // see verify-turnstile.ts for server-side verification.
+  formData.set("cf-turnstile-response", turnstileToken ?? "");
   for (const service of values.services) {
     formData.append("services", service);
   }
@@ -161,6 +187,102 @@ export function EstimateForm() {
   const statusRef = useRef<HTMLDivElement>(null);
   const successRef = useRef<HTMLDivElement>(null);
   const Phone = icons.phone;
+
+  // Cloudflare Turnstile (bot verification widget). Explicit rendering
+  // (rather than the script's automatic DOM scanning) is used so the
+  // widget can be reset for a fresh token after a failed submission —
+  // every token is single-use, so once verify-turnstile.ts has checked
+  // one (succeeding OR failing the rest of the request for some other
+  // reason), it can't be reused for a retry. See resetTurnstile below.
+  //
+  // `turnstileUnavailable` is the escape hatch for everything that can
+  // go wrong outside a normal solve/expire cycle: the Cloudflare script
+  // failing to load at all (ad blocker, firewall, outage), or the
+  // widget repeatedly failing/expiring faster than it can be solved
+  // (e.g. Cloudflare itself being unreachable). Once set, the submit
+  // button stops waiting on a token — the form becomes submittable
+  // again so a real visitor is never stuck, and the server's existing,
+  // honest verification_failed response (with its own phone fallback)
+  // is what actually handles an unverifiable request from there. A
+  // visible message here additionally gives the phone number
+  // immediately, without making the visitor submit first to find it.
+  const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileUnavailable, setTurnstileUnavailable] = useState(false);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
+  const turnstileAutoResetCount = useRef(0);
+
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || !turnstileScriptLoaded || turnstileUnavailable) {
+      return;
+    }
+    if (!turnstileContainerRef.current || turnstileWidgetId.current) return;
+    if (!window.turnstile) return;
+
+    // Gives up and surfaces the phone-fallback message after a bounded
+    // number of automatic expire/error resets, rather than looping
+    // forever if Cloudflare itself is unreachable (each reset attempt
+    // would otherwise immediately fail again, calling this right back).
+    function attemptAutoReset() {
+      if (turnstileAutoResetCount.current >= MAX_TURNSTILE_AUTO_RESETS) {
+        setTurnstileUnavailable(true);
+        return;
+      }
+      turnstileAutoResetCount.current += 1;
+      if (window.turnstile && turnstileWidgetId.current) {
+        window.turnstile.reset(turnstileWidgetId.current);
+      }
+    }
+
+    turnstileWidgetId.current = window.turnstile.render(
+      turnstileContainerRef.current,
+      {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token) => {
+          turnstileAutoResetCount.current = 0;
+          setTurnstileToken(token);
+        },
+        "expired-callback": () => {
+          setTurnstileToken(null);
+          attemptAutoReset();
+        },
+        "error-callback": () => {
+          setTurnstileToken(null);
+          attemptAutoReset();
+        },
+      },
+    );
+  }, [turnstileScriptLoaded, turnstileUnavailable]);
+
+  // If the widget never produces a token within a reasonable window —
+  // most commonly because the Cloudflare script never loaded at all —
+  // stop waiting on it rather than leaving the submit button disabled
+  // indefinitely.
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || turnstileToken || turnstileUnavailable) return;
+
+    const timer = setTimeout(() => {
+      setTurnstileUnavailable(true);
+    }, TURNSTILE_LOAD_TIMEOUT_MS);
+
+    return () => clearTimeout(timer);
+  }, [turnstileToken, turnstileUnavailable]);
+
+  function resetTurnstile() {
+    setTurnstileToken(null);
+    if (turnstileUnavailable) return;
+    if (window.turnstile && turnstileWidgetId.current) {
+      window.turnstile.reset(turnstileWidgetId.current);
+    }
+  }
+
+  // True only while a widget is configured, hasn't produced a token
+  // yet, AND hasn't been given up on — once turnstileUnavailable flips
+  // to true, submission is allowed through regardless of token state
+  // (see the notes above turnstileUnavailable).
+  const turnstilePending =
+    Boolean(TURNSTILE_SITE_KEY) && !turnstileToken && !turnstileUnavailable;
 
   // Move focus to the status banner (failure) or the confirmation
   // panel (success) whenever a submission resolves, so keyboard and
@@ -245,11 +367,15 @@ export function EstimateForm() {
     event.preventDefault();
 
     // Prevent duplicate submissions from a double-click or repeated
-    // Enter presses while a request is already in flight, and prevent
+    // Enter presses while a request is already in flight, prevent
     // submitting before the browser-side photo optimization (see
-    // FileUploadField's onProcessingChange) has finished — the button
-    // is disabled during both, this is just a defensive backstop.
-    if (submitState === "submitting" || photosProcessing) return;
+    // FileUploadField's onProcessingChange) has finished, and prevent
+    // submitting before Turnstile has produced a token (when
+    // configured) — the button is disabled during all three, this is
+    // just a defensive backstop.
+    if (submitState === "submitting" || photosProcessing || turnstilePending) {
+      return;
+    }
 
     // Honeypot: a real visitor never sees or fills the "company" field
     // (see the offscreen input below), so any value here almost
@@ -274,7 +400,11 @@ export function EstimateForm() {
     setStatusMessage(null);
 
     try {
-      const result = await submitEstimateRequest(values, photos);
+      const result = await submitEstimateRequest(
+        values,
+        photos,
+        turnstileToken,
+      );
 
       if (result.ok) {
         // Clear all form state on success — the confirmation view
@@ -288,6 +418,13 @@ export function EstimateForm() {
         setSubmitState("success");
         return;
       }
+
+      // Every failure path below gets a fresh Turnstile token queued up
+      // — the token just submitted has already been checked by
+      // Cloudflare (verify-turnstile.ts) and can't be reused, so without
+      // this a retry would fail Turnstile verification even after the
+      // visitor fixes whatever else was wrong.
+      resetTurnstile();
 
       if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
         // The server caught something the client-side check missed (or
@@ -306,6 +443,7 @@ export function EstimateForm() {
       );
       setSubmitState("failure");
     } catch {
+      resetTurnstile();
       setStatusMessage("We couldn't reach the server.");
       setSubmitState("failure");
     }
@@ -449,6 +587,58 @@ export function EstimateForm() {
         onProcessingChange={setPhotosProcessing}
       />
 
+      {/* Cloudflare Turnstile (bot verification). Rendered only when a
+          site key is configured (see TURNSTILE_SITE_KEY above) — if
+          it's missing, the server still fails closed on the missing
+          token, this just determines whether a widget is shown. Managed
+          mode usually resolves near-instantly with no visible
+          challenge, so in practice this adds no friction for real
+          visitors; the submit button is simply disabled for that brief
+          window (see turnstilePending above). */}
+      {TURNSTILE_SITE_KEY && (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            strategy="afterInteractive"
+            onLoad={() => setTurnstileScriptLoaded(true)}
+            onError={() => setTurnstileUnavailable(true)}
+          />
+          <div ref={turnstileContainerRef} />
+
+          {/* Accessible status region for verification state changes:
+              announces readiness to screen-reader users (who otherwise
+              have no reliable signal that the submit button just
+              became enabled — see the QA audit), and surfaces a
+              VISIBLE error + phone fallback if the widget never works
+              (script blocked/failed to load, or repeated expire/error
+              resets gave up — see turnstileUnavailable above). This is
+              deliberately not sr-only in the failure case: a visitor
+              needs to see this, not just have it announced once. */}
+          <div aria-live="polite" role="status">
+            {turnstileUnavailable ? (
+              <p className="rounded-input border border-red-500 bg-red-50 px-4 py-3 font-ui text-sm text-foreground">
+                We couldn&rsquo;t load the verification check.
+                {contact.phone ? (
+                  <>
+                    {" "}
+                    You can still try submitting below — if it doesn&rsquo;t go
+                    through, please call Percy directly at {contact.phone}.
+                  </>
+                ) : (
+                  " You can still try submitting below."
+                )}
+              </p>
+            ) : (
+              turnstileToken && (
+                <span className="sr-only">
+                  Verification complete. You can now submit your request.
+                </span>
+              )
+            )}
+          </div>
+        </>
+      )}
+
       {/* Failure-only status region, focusable so it can receive focus
           programmatically on submit resolution (see the effect above).
           Success no longer renders here — it replaces the whole form
@@ -475,14 +665,16 @@ export function EstimateForm() {
         type="submit"
         variant="accent"
         className="w-full sm:w-auto"
-        disabled={isSubmitting || photosProcessing}
+        disabled={isSubmitting || photosProcessing || turnstilePending}
         aria-busy={isSubmitting || photosProcessing || undefined}
       >
         {isSubmitting
           ? "Sending Request..."
           : photosProcessing
             ? "Optimizing photos…"
-            : "Request a Free Estimate"}
+            : turnstilePending
+              ? "Verifying…"
+              : "Request a Free Estimate"}
       </Button>
 
       {contact.phone && (
