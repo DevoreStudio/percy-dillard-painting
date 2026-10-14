@@ -3,6 +3,7 @@ import { Inria_Sans, Inria_Serif, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { siteConfig } from "@/lib/site-config";
+import { Analytics } from "@vercel/analytics/next";
 
 // Only the weights actually used in the approved Figma design are loaded,
 // to keep font payload minimal. See docs/QA-CHECKLIST.md / performance
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="flex min-h-full flex-col overflow-x-hidden font-body bg-background text-foreground">
         {children}
+        <Analytics />
       </body>
     </html>
   );
