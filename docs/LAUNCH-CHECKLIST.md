@@ -34,6 +34,11 @@ real project content. Before any project goes live, replace:
 - [ ] Email delivery (or other destination) confirmed working
 - [ ] Any optional integrations (Supabase, Resend, etc.) verified with
       real production credentials, not test/dev keys
+- [ ] Conversion events (see `src/lib/analytics.ts`, if present) appear in
+      Vercel → Analytics → Events after a real test submission (custom
+      events require a Pro or Enterprise plan). Counts are approximate:
+      they can include server-filtered spam that receives a deliberately
+      successful response, and visitors with ad blockers aren't counted.
 
 ## Post-launch
 
