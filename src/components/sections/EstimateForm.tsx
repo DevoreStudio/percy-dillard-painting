@@ -14,6 +14,7 @@ import { MultiSelectField } from "@/components/ui/form/MultiSelectField";
 import type { SelectOption } from "@/components/ui/form/SelectField";
 import { TextareaField } from "@/components/ui/form/TextareaField";
 import { TextInput } from "@/components/ui/form/TextInput";
+import { ANALYTICS_EVENTS, trackEvent } from "@/lib/analytics";
 import { contact } from "@/lib/content/contact";
 import { ESTIMATE_PRESELECT_EVENT } from "@/lib/content/nav";
 import { services } from "@/lib/content/services";
@@ -186,6 +187,11 @@ export function EstimateForm() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const statusRef = useRef<HTMLDivElement>(null);
   const successRef = useRef<HTMLDivElement>(null);
+  // Guards the estimate_submitted analytics event so it fires at most
+  // once per page load, even if success handling were ever to run
+  // twice. A genuine second request after a page reload is a separate
+  // lead and is counted again — that's intentional.
+  const conversionTracked = useRef(false);
   const Phone = icons.phone;
 
   // Cloudflare Turnstile (bot verification widget). Explicit rendering
@@ -416,6 +422,18 @@ export function EstimateForm() {
         setErrors({});
         setStatusMessage(null);
         setSubmitState("success");
+
+        // Conversion tracking: only reached once /api/estimate has
+        // responded { ok: true }. Validation errors, Turnstile failures,
+        // rate limiting, delivery failures and network errors all take
+        // the paths below and are never tracked. No properties are sent
+        // (see src/lib/analytics.ts), so no visitor details leave the page.
+        // Note: server-side spam also receives { ok: true } by design, so
+        // it is counted here too — see ANALYTICS_EVENTS for details.
+        if (result.ok === true && !conversionTracked.current) {
+          conversionTracked.current = true;
+          trackEvent(ANALYTICS_EVENTS.estimateSubmitted);
+        }
         return;
       }
 
